@@ -122,6 +122,19 @@ constexpr auto kTestLocalizationFile = R"LOCALIZATION(
 }
 )LOCALIZATION";
 
+constexpr auto kTestProfilePreferencesWithSearchEngine = R"PREFERENCES(
+{
+  "default_search_provider_data": {
+    "template_url_data": {
+      "short_name": "Test Search",
+      "keyword": "test",
+      "url": "https://search.example.com/?q={searchTerms}"
+    }
+  },
+  "profile": { "name": "test" }
+}
+)PREFERENCES";
+
 const std::vector<std::pair<std::string, std::string>>
     kExpectedContentScriptsMatches = {
         {"/js/1.js", "http://*/1*"},
@@ -180,6 +193,45 @@ TEST_F(ChromeUtilsTests, getChromeBrowserName) {
 
   browser_name = getChromeBrowserName(ChromeBrowserType::Opera);
   EXPECT_EQ(browser_name, "opera");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::Edge);
+  EXPECT_EQ(browser_name, "edge");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::EdgeBeta);
+  EXPECT_EQ(browser_name, "edge_beta");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::GoogleChromeBeta);
+  EXPECT_EQ(browser_name, "chrome_beta");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::GoogleChromeDev);
+  EXPECT_EQ(browser_name, "chrome_dev");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::GoogleChromeCanary);
+  EXPECT_EQ(browser_name, "chrome_canary");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::BraveBeta);
+  EXPECT_EQ(browser_name, "brave_beta");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::BraveNightly);
+  EXPECT_EQ(browser_name, "brave_nightly");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::EdgeDev);
+  EXPECT_EQ(browser_name, "edge_dev");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::EdgeCanary);
+  EXPECT_EQ(browser_name, "edge_canary");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::Vivaldi);
+  EXPECT_EQ(browser_name, "vivaldi");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::Arc);
+  EXPECT_EQ(browser_name, "arc");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::Dia);
+  EXPECT_EQ(browser_name, "dia");
+
+  browser_name = getChromeBrowserName(ChromeBrowserType::PerplexityComet);
+  EXPECT_EQ(browser_name, "comet");
 }
 
 TEST_F(ChromeUtilsTests, getExtensionContentScriptsMatches) {
@@ -413,6 +465,49 @@ TEST_F(ChromeUtilsTests, getChromeProfilesFromSnapshotList) {
   const auto& referenced_extension = profile.extension_list.at(1U);
   ASSERT_TRUE(referenced_extension.referenced);
   ASSERT_FALSE(referenced_extension.profile_settings.empty());
+}
+
+TEST_F(ChromeUtilsTests,
+       getChromeProfilesFromSnapshotList_defaultSearchEngine) {
+  ChromeProfileSnapshot snapshot;
+  snapshot.type = ChromeBrowserType::GoogleChrome;
+  snapshot.path = kTestProfilePath;
+  snapshot.preferences = kTestProfilePreferencesWithSearchEngine;
+  snapshot.uid = 1000;
+
+  auto chrome_profile_list = getChromeProfilesFromSnapshotList({snapshot});
+  ASSERT_EQ(chrome_profile_list.size(), 1U);
+
+  const auto& profile = chrome_profile_list.at(0);
+
+  ASSERT_TRUE(profile.search_engine_name.has_value());
+  EXPECT_EQ(*profile.search_engine_name, "Test Search");
+
+  ASSERT_TRUE(profile.search_engine_keyword.has_value());
+  EXPECT_EQ(*profile.search_engine_keyword, "test");
+
+  ASSERT_TRUE(profile.search_engine_url.has_value());
+  EXPECT_EQ(*profile.search_engine_url,
+            "https://search.example.com/?q={searchTerms}");
+}
+
+TEST_F(ChromeUtilsTests, getChromeProfilesFromSnapshotList_noSearchEngine) {
+  // kTestProfilePreferences (used throughout the rest of this file) has no
+  // default_search_provider_data node; make sure the new fields are left
+  // unset in that case rather than defaulting to empty strings.
+  ChromeProfileSnapshot snapshot;
+  snapshot.type = ChromeBrowserType::GoogleChrome;
+  snapshot.path = kTestProfilePath;
+  snapshot.preferences = kTestProfilePreferences;
+  snapshot.uid = 1000;
+
+  auto chrome_profile_list = getChromeProfilesFromSnapshotList({snapshot});
+  ASSERT_EQ(chrome_profile_list.size(), 1U);
+
+  const auto& profile = chrome_profile_list.at(0);
+  EXPECT_FALSE(profile.search_engine_name.has_value());
+  EXPECT_FALSE(profile.search_engine_keyword.has_value());
+  EXPECT_FALSE(profile.search_engine_url.has_value());
 }
 
 TEST_F(ChromeUtilsTests, webkitTimeToUnixTimestamp) {

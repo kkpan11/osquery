@@ -32,6 +32,7 @@
 #include <osquery/hashing/hashing.h>
 #include <osquery/logger/logger.h>
 #include <osquery/registry/registry.h>
+#include <osquery/utils/affixes.h>
 #include <osquery/utils/conversions/split.h>
 #include <osquery/utils/conversions/trim.h>
 #include <osquery/utils/conversions/tryto.h>
@@ -47,7 +48,7 @@ const std::string kConfigPersistencePrefix{"config_persistence."};
 /// Max depth that the JSON document representing the configuration can have
 const int kMaxConfigDepth = 32;
 /// Max size that the configuration, stripped from its comments, can have
-const int kMaxConfigSize = 1024 * 1024;
+const int kMaxConfigSize = 1024 * 1024 * 4;
 
 using ConfigMap = std::map<std::string, std::string>;
 
@@ -537,6 +538,20 @@ Status Config::refresh() {
   auto status = Registry::call("config", {{"action", "genConfig"}}, response);
 
   WriteLock lock(config_refresh_mutex_);
+  if (status.getCode() == 2) {
+    // The plugin reports that the configuration is unchanged since it was
+    // last applied; there is nothing to reload. Plugins may only report
+    // this after a configuration was applied in this process lifetime.
+    if (getRefresh() != FLAGS_config_refresh) {
+      VLOG(1) << "Normal configuration delay restored";
+      setRefresh(FLAGS_config_refresh);
+    }
+    valid_ = true;
+    loaded_ = true;
+    is_first_time_refresh = false;
+    return Status::success();
+  }
+
   if (!status.ok()) {
     if (FLAGS_config_refresh > 0 && getRefresh() == FLAGS_config_refresh) {
       VLOG(1) << "Using accelerated configuration delay";
@@ -576,6 +591,13 @@ Status Config::refresh() {
       return Status::success();
     }
     status = update(response[0]);
+    if (status.ok()) {
+      // Let the plugin know the generated config was applied, e.g. so it
+      // can acknowledge a server-supplied validator. Plugins built against
+      // an older SDK reject the unknown action; that is not a failure.
+      PluginResponse applied_response;
+      Registry::call("config", {{"action", "configApplied"}}, applied_response);
+    }
   }
 
   is_first_time_refresh = false;
@@ -776,7 +798,7 @@ Status Config::updateSource(const std::string& source,
       auto main_doc = JSON::newObject();
       auto queries_obj = main_doc.getObject();
       main_doc.copyFrom(schedule, queries_obj);
-      main_doc.add("queries", queries_obj);
+      main_doc.addCopy("queries", queries_obj);
       addPack("main", source, main_doc.doc());
     }
   }
@@ -1018,7 +1040,7 @@ void Config::purge() {
                          const std::string& query_name) {
     for (const auto& pack : schedule->packs_) {
       for (const auto& query : pack->getSchedule()) {
-        if (query.name == query_name) {
+        if (getQueryName(pack->getName(), query.name) == query_name) {
           return true;
         }
       }
@@ -1029,7 +1051,9 @@ void Config::purge() {
   RecursiveLock lock(config_schedule_mutex_);
   // Iterate over each result set in the database.
   for (const auto& saved_query : saved_queries) {
-    if (queryExists(saved_query)) {
+    if (hasAnyPrefix(saved_query, kReservedDbPrefixes) ||
+        hasAnySuffix(saved_query, kReservedDbSuffixes) ||
+        queryExists(saved_query)) {
       continue;
     }
 
@@ -1100,7 +1124,7 @@ void ConfigParserPlugin::reset() {
 
   for (auto& category : data_.doc().GetObject()) {
     auto obj = doc.getObject();
-    doc.add(category.name.GetString(), obj, doc.doc());
+    doc.addCopy(category.name.GetString(), obj, doc.doc());
   }
 
   data_ = std::move(doc);
@@ -1268,6 +1292,10 @@ Status ConfigPlugin::genPack(const std::string& name,
   return Status(1, "Not implemented");
 }
 
+Status ConfigPlugin::configApplied() {
+  return Status::success();
+}
+
 Status ConfigPlugin::call(const PluginRequest& request,
                           PluginResponse& response) {
   auto action = request.find("action");
@@ -1299,6 +1327,8 @@ Status ConfigPlugin::call(const PluginRequest& request,
     }
 
     return Config::get().update({{source->second, data->second}});
+  } else if (action->second == "configApplied") {
+    return configApplied();
   } else if (action->second == "option") {
     auto name = request.find("name");
     if (name == request.end()) {
@@ -1315,7 +1345,7 @@ Status ConfigPlugin::call(const PluginRequest& request,
 Status ConfigParserPlugin::setUp() {
   for (const auto& key : keys()) {
     auto obj = data_.getObject();
-    data_.add(key, obj);
+    data_.addCopy(key, obj);
   }
   return Status::success();
 }

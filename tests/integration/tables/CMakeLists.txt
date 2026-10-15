@@ -32,10 +32,12 @@ endfunction()
 
 function(generateTestsIntegrationTablesTestsTest)
   set(source_files
+    ai_agent_skills.cpp
     carbon_black_info.cpp
     carves.cpp
     certificates.cpp
     chrome_extensions.cpp
+    chrome_search_engines.cpp
     curl.cpp
     curl_certificate.cpp
     etc_hosts.cpp
@@ -47,6 +49,7 @@ function(generateTestsIntegrationTablesTestsTest)
     hash.cpp
     interface_addresses.cpp
     interface_details.cpp
+    jetbrains_plugins.cpp
     listening_ports.cpp
     logged_in_users.cpp
     npm_packages.cpp
@@ -83,6 +86,7 @@ function(generateTestsIntegrationTablesTestsTest)
   if(NOT PLATFORM_LINUX OR OSQUERY_BUILD_ROOT_TESTS)
     list(APPEND source_files
       cpu_info.cpp
+      gpu_metrics.cpp
       memory_devices.cpp
     )
   endif()
@@ -119,7 +123,9 @@ function(generateTestsIntegrationTablesTestsTest)
       docker_volume_labels.cpp
       docker_volumes.cpp
       file_events.cpp
+      gpu_info.cpp
       hardware_events.cpp
+      homebrew_packages.cpp
       interface_ipv6.cpp
       known_hosts.cpp
       last.cpp
@@ -138,6 +144,7 @@ function(generateTestsIntegrationTablesTestsTest)
       prometheus_metrics.cpp
       shell_history.cpp
       smbios_tables.cpp
+      sshd_config.cpp
       sudoers.cpp
       suid_bin.cpp
       system_controls.cpp
@@ -171,6 +178,9 @@ function(generateTestsIntegrationTablesTestsTest)
       memory_info.cpp
       memory_map.cpp
       msr.cpp
+      flatpak_packages.cpp
+      pacman_packages.cpp
+      snap_packages.cpp
       portage_keywords.cpp
       portage_packages.cpp
       portage_use.cpp
@@ -178,7 +188,9 @@ function(generateTestsIntegrationTablesTestsTest)
       process_namespaces.cpp
       process_open_pipes.cpp
       rpm_package_files.cpp
+      deb_package_files.cpp
       rpm_packages.cpp
+      secureboot_certificates.cpp
       selinux_events.cpp
       shadow.cpp
       shared_memory.cpp
@@ -218,6 +230,7 @@ function(generateTestsIntegrationTablesTestsTest)
       authorizations.cpp
       battery.cpp
       browser_plugins.cpp
+      certificate_trust_settings.cpp
       connected_displays.cpp
       crashes.cpp
       cups_destinations.cpp
@@ -229,7 +242,7 @@ function(generateTestsIntegrationTablesTestsTest)
       fan_speed_sensors.cpp
       gatekeeper.cpp
       gatekeeper_approved_apps.cpp
-      homebrew_packages.cpp
+      macports_packages.cpp
       ibridge.cpp
       iokit_devicetree.cpp
       iokit_registry.cpp
@@ -244,10 +257,12 @@ function(generateTestsIntegrationTablesTestsTest)
       managed_policies.cpp
       mdfind.cpp
       nfs_shares.cpp
+      system_profiler.cpp
       nvram.cpp
       package_bom.cpp
       package_install_history.cpp
       package_receipts.cpp
+      password_policy.cpp
       plist.cpp
       power_sensors.cpp
       preferences.cpp
@@ -295,6 +310,7 @@ function(generateTestsIntegrationTablesTestsTest)
       default_environment.cpp
       disk_info.cpp
       drivers.cpp
+      gpu_info.cpp
       ie_extensions.cpp
       intel_me_info.cpp
       logon_sessions.cpp
@@ -335,6 +351,7 @@ function(generateTestsIntegrationTablesTestsTest)
       deviceguard_status.cpp
       tpm_info.cpp
       security_profile_info.cpp
+      recent_files.cpp
     )
 
     if(OSQUERY_BUILD_ETW)

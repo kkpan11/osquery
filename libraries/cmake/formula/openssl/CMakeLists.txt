@@ -1,9 +1,11 @@
 project(thirdparty_openssl)
 
-set(OPENSSL_VERSION "3.4.1")
-set(OPENSSL_ARCHIVE_SHA256 "002a2d6b30b58bf4bea46c43bdd96365aaf8daa6c428782aa4feee06da197df3")
+set(OPENSSL_VERSION "3.6.5")
+set(OPENSSL_ARCHIVE_SHA256 "a2157c2830efdec3788939b00c9b0638306d3f0bbb76dc4832ee503bb397df98")
 
 set(OSQUERY_OPENSSL_ARCHIVE_PATH "" CACHE FILEPATH "Optional path to an openssl archive to use instead of downloading it")
+
+option(OSQUERY_OPENSSL_BUILD_TESTS "Build the OpenSSL test suite and add an openssl-test target to run it. The osquery build never runs it" OFF)
 
 include(ExternalProject)
 
@@ -15,8 +17,19 @@ function(opensslMain)
     no-shared
     no-weak-ssl-ciphers
     no-comp
+    no-docs
     enable-cms
   )
+
+  # The OpenSSL tests are not run by the osquery build, so they are not built
+  # by default. OpenSSL disables its tests along with its apps (the openssl
+  # program they drive), so both are needed to run them.
+  if(NOT OSQUERY_OPENSSL_BUILD_TESTS)
+    list(APPEND common_options
+      no-tests
+      no-apps
+    )
+  endif()
 
   add_library(thirdparty_openssl_ssl STATIC IMPORTED GLOBAL)
   add_library(thirdparty_openssl_crypto STATIC IMPORTED GLOBAL)
@@ -53,6 +66,10 @@ function(opensslMain)
       ${make_command} install_sw install_ssldirs
     )
 
+    set(test_command
+      ${make_command} test
+    )
+
     if(TARGET_PROCESSOR STREQUAL "aarch64")
       set(lib_folder_name "lib")
     else()
@@ -74,6 +91,8 @@ function(opensslMain)
   elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
     set(platform_c_flags
       -fPIC
+      -isysroot
+      ${CMAKE_OSX_SYSROOT}
     )
 
     if(NOT "${CMAKE_OSX_DEPLOYMENT_TARGET}" STREQUAL "")
@@ -121,6 +140,10 @@ function(opensslMain)
       ${make_command} install_sw install_ssldirs
     )
 
+    set(test_command
+      ${make_command} test
+    )
+
     set(openssl_libs
       "${install_prefix}/lib/libssl.a"
       "${install_prefix}/lib/libcrypto.a"
@@ -155,6 +178,10 @@ function(opensslMain)
 
     set(build_command
       "${CMAKE_COMMAND}" -E env "cmd.exe" "/C" "nmake PERL=${perl_executable_path}"
+    )
+
+    set(test_command
+      "${CMAKE_COMMAND}" -E env "cmd.exe" "/C" "nmake PERL=${perl_executable_path} test"
     )
 
     set(install_command
@@ -217,6 +244,20 @@ function(opensslMain)
     BYPRODUCTS ${openssl_libs}
     WORKING_DIRECTORY "${SOURCE_DIR}"
   )
+
+  # Running the tests is a manual step, e.g. when updating OpenSSL: build the
+  # openssl-test target. Some tests may be expected to fail with our options.
+  if(OSQUERY_OPENSSL_BUILD_TESTS)
+    ExternalProject_Add_Step(openssl test
+      COMMAND ${test_command}
+      DEPENDEES build
+      WORKING_DIRECTORY "${SOURCE_DIR}"
+      EXCLUDE_FROM_MAIN true
+      ALWAYS true
+      USES_TERMINAL true
+    )
+    ExternalProject_Add_StepTargets(openssl test)
+  endif()
 
   add_library(thirdparty_openssl INTERFACE)
 

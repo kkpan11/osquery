@@ -23,6 +23,34 @@ namespace fs = boost::filesystem;
 namespace osquery {
 namespace tables {
 
+// Constants for VSCode configuration paths
+const std::vector<std::pair<std::string, std::string>> KPathList = {
+    {".vscode-server", "vscode"},
+    {".vscode", "vscode"},
+    {".vscode-server-insiders", "vscode_insiders"},
+    {".vscode-insiders", "vscode_insiders"},
+    // Note vscodium regular does not follow the pattern
+    {".vscode-oss", "vscodium"},
+    {".vscodium-server", "vscodium"},
+    {".vscodium-insiders", "vscodium_insiders"},
+    {".vscodium-server-insiders", "vscodium_insiders"},
+    {".cursor", "cursor"},
+    {".cursor-server", "cursor"},
+    {".windsurf", "windsurf"},
+    {".windsurf-server", "windsurf"},
+    // Windsurf was rebranded to Devin Desktop in June 2026. New installs
+    // write extensions under .devin instead of .windsurf; the legacy path
+    // above is still read for machines that haven't been touched since.
+    {".devin", "windsurf"},
+    {".trae", "trae"},
+    {".trae-server", "trae"},
+    {".antigravity", "antigravity"},
+    // Newer Antigravity IDE builds use .antigravity-ide.
+    {".antigravity-ide", "antigravity"},
+    {".antigravity-server", "antigravity"},
+    {".local/share/code-server", "code_server"},
+};
+
 void genReadJSONAndAddExtensionRows(const std::string& uid,
                                     const std::string& path,
                                     const std::string& vscode_edition,
@@ -67,11 +95,6 @@ void genReadJSONAndAddExtensionRows(const std::string& uid,
       r["name"] = it->value.GetString();
     }
 
-    it = identifier.FindMember("uuid");
-    if (it != identifier.MemberEnd() && it->value.IsString()) {
-      r["uuid"] = it->value.GetString();
-    }
-
     it = extension.FindMember("version");
     if (it != extension.MemberEnd() && it->value.IsString()) {
       r["version"] = it->value.GetString();
@@ -80,6 +103,14 @@ void genReadJSONAndAddExtensionRows(const std::string& uid,
     it = location.FindMember("path");
     if (it != location.MemberEnd() && it->value.IsString()) {
       r["path"] = it->value.GetString();
+    }
+
+    // Note that we used to look for identifier.uuid but it is not always
+    // present and in every example checked, metadata.id is present and has the
+    // same value (on Windows, macOS, and Linux and multiple VSCode forks)
+    it = metadata.FindMember("id");
+    if (it != metadata.MemberEnd() && it->value.IsString()) {
+      r["uuid"] = it->value.GetString();
     }
 
     it = metadata.FindMember("publisherDisplayName");
@@ -130,19 +161,12 @@ QueryData genVSCodeExtensions(QueryContext& context) {
       continue;
     }
 
-    // Determine the version type and add paths for both VSCode and VSCode
-    // Insiders
-    conf_dirs.insert(ConfDir{
-        uid->second, fs::path(directory->second) / ".vscode-server", "vscode"});
-    conf_dirs.insert(ConfDir{
-        uid->second, fs::path(directory->second) / ".vscode", "vscode"});
-    conf_dirs.insert(
-        ConfDir{uid->second,
-                fs::path(directory->second) / ".vscode-server-insiders",
-                "vscode_insiders"});
-    conf_dirs.insert(ConfDir{uid->second,
-                             fs::path(directory->second) / ".vscode-insiders",
-                             "vscode_insiders"});
+    // Add paths for each of the supported VSCode editions
+    for (const auto& path_info : KPathList) {
+      conf_dirs.insert(ConfDir{uid->second,
+                               fs::path(directory->second) / path_info.first,
+                               path_info.second});
+    }
   }
 
   for (const auto& conf_dir : conf_dirs) {

@@ -56,12 +56,18 @@ const ChromePathSuffixMap kWindowsPathList = {
     {ChromeBrowserType::GoogleChromeDev, "AppData\\Local\\Google\\Chrome Dev\\User Data"},
     {ChromeBrowserType::GoogleChromeCanary, "AppData\\Local\\Google\\Chrome SxS\\User Data"},
     {ChromeBrowserType::Brave, "AppData\\Roaming\\brave"},
+    {ChromeBrowserType::Brave, "AppData\\Local\\BraveSoftware\\Brave-Browser\\User Data"},
+    {ChromeBrowserType::BraveBeta, "AppData\\Local\\BraveSoftware\\Brave-Browser-Beta\\User Data"},
+    {ChromeBrowserType::BraveNightly, "AppData\\Local\\BraveSoftware\\Brave-Browser-Nightly\\User Data"},
     {ChromeBrowserType::Chromium, "AppData\\Local\\Chromium"},
     {ChromeBrowserType::Yandex, "AppData\\Local\\Yandex\\YandexBrowser\\User Data"},
     {ChromeBrowserType::Edge, "AppData\\Local\\Microsoft\\Edge\\User Data"},
     {ChromeBrowserType::EdgeBeta, "AppData\\Local\\Microsoft\\Edge Beta\\User Data"},
+    {ChromeBrowserType::EdgeDev, "AppData\\Local\\Microsoft\\Edge Dev\\User Data"},
+    {ChromeBrowserType::EdgeCanary, "AppData\\Local\\Microsoft\\Edge SxS\\User Data"},
     {ChromeBrowserType::Opera, "AppData\\Roaming\\Opera Software\\Opera Stable"},
-    {ChromeBrowserType::Vivaldi, "AppData\\Local\\Vivaldi\\User Data"}};
+    {ChromeBrowserType::Vivaldi, "AppData\\Local\\Vivaldi\\User Data"},
+    {ChromeBrowserType::PerplexityComet, "AppData\\Local\\Perplexity\\Comet\\User Data"}};
 // clang-format on
 
 // clang-format off
@@ -71,26 +77,44 @@ const ChromePathSuffixMap kMacOsPathList = {
     {ChromeBrowserType::GoogleChromeDev, "Library/Application Support/Google/Chrome Dev"},
     {ChromeBrowserType::GoogleChromeCanary, "Library/Application Support/Google/Chrome Canary"},
     {ChromeBrowserType::Brave, "Library/Application Support/BraveSoftware/Brave-Browser"},
+    {ChromeBrowserType::BraveBeta, "Library/Application Support/BraveSoftware/Brave-Browser-Beta"},
+    {ChromeBrowserType::BraveNightly, "Library/Application Support/BraveSoftware/Brave-Browser-Nightly"},
     {ChromeBrowserType::Chromium, "Library/Application Support/Chromium"},
     {ChromeBrowserType::Yandex, "Library/Application Support/Yandex/YandexBrowser"},
     {ChromeBrowserType::Edge, "Library/Application Support/Microsoft Edge"},
     {ChromeBrowserType::EdgeBeta, "Library/Application Support/Microsoft Edge Beta"},
+    {ChromeBrowserType::EdgeDev, "Library/Application Support/Microsoft Edge Dev"},
+    {ChromeBrowserType::EdgeCanary, "Library/Application Support/Microsoft Edge Canary"},
     {ChromeBrowserType::Opera, "Library/Application Support/com.operasoftware.Opera"},
     {ChromeBrowserType::Vivaldi, "Library/Application Support/Vivaldi"},
-    {ChromeBrowserType::Arc, "Library/Application Support/Arc/User Data"}};
+    {ChromeBrowserType::Arc, "Library/Application Support/Arc/User Data"},
+    {ChromeBrowserType::Dia, "Library/Application Support/Dia/User Data"},
+    {ChromeBrowserType::PerplexityComet, "Library/Application Support/Comet"}};
 // clang-format on
 
+// clang-format off
 const ChromePathSuffixMap kLinuxPathList = {
     {ChromeBrowserType::GoogleChrome, ".config/google-chrome"},
     {ChromeBrowserType::GoogleChromeBeta, ".config/google-chrome-beta"},
     {ChromeBrowserType::GoogleChromeDev, ".config/google-chrome-unstable"},
     {ChromeBrowserType::Brave, ".config/BraveSoftware/Brave-Browser"},
+    {ChromeBrowserType::Brave, ".var/app/com.brave.Browser/config/BraveSoftware/Brave-Browser"},
+    {ChromeBrowserType::BraveBeta, ".config/BraveSoftware/Brave-Browser-Beta"},
+    {ChromeBrowserType::BraveBeta, ".var/app/com.brave.Browser/config/BraveSoftware/Brave-Browser-Beta"},
+    {ChromeBrowserType::BraveNightly, ".config/BraveSoftware/Brave-Browser-Nightly"},
+    {ChromeBrowserType::BraveNightly, ".var/app/com.brave.Browser/config/BraveSoftware/Brave-Browser-Nightly"},
     {ChromeBrowserType::Chromium, ".config/chromium"},
     {ChromeBrowserType::Chromium, "snap/chromium/common/chromium"},
+    {ChromeBrowserType::Chromium, ".var/app/org.chromium.Chromium/config/chromium"},
     {ChromeBrowserType::Yandex, ".config/yandex-browser-beta"},
+    {ChromeBrowserType::Edge, ".config/microsoft-edge"},
+    {ChromeBrowserType::EdgeBeta, ".config/microsoft-edge-beta"},
+    {ChromeBrowserType::EdgeDev, ".config/microsoft-edge-dev"},
     {ChromeBrowserType::Opera, ".config/opera"},
     {ChromeBrowserType::Vivaldi, ".config/vivaldi"},
+    {ChromeBrowserType::Vivaldi, ".var/app/com.vivaldi.Vivaldi/config/vivaldi"},
 };
+// clang-format on
 
 /// Maps ChromeBrowserType values to readable strings
 const std::unordered_map<ChromeBrowserType, std::string>
@@ -100,13 +124,19 @@ const std::unordered_map<ChromeBrowserType, std::string>
         {ChromeBrowserType::GoogleChromeDev, "chrome_dev"},
         {ChromeBrowserType::GoogleChromeCanary, "chrome_canary"},
         {ChromeBrowserType::Brave, "brave"},
+        {ChromeBrowserType::BraveBeta, "brave_beta"},
+        {ChromeBrowserType::BraveNightly, "brave_nightly"},
         {ChromeBrowserType::Chromium, "chromium"},
         {ChromeBrowserType::Yandex, "yandex"},
         {ChromeBrowserType::Opera, "opera"},
         {ChromeBrowserType::Edge, "edge"},
-        {ChromeBrowserType::Edge, "edge_beta"},
+        {ChromeBrowserType::EdgeBeta, "edge_beta"},
+        {ChromeBrowserType::EdgeDev, "edge_dev"},
+        {ChromeBrowserType::EdgeCanary, "edge_canary"},
         {ChromeBrowserType::Vivaldi, "vivaldi"},
         {ChromeBrowserType::Arc, "arc"},
+        {ChromeBrowserType::Dia, "dia"},
+        {ChromeBrowserType::PerplexityComet, "comet"},
 };
 
 /// Base paths for built-in extensions; used to silence warnings for
@@ -502,10 +532,10 @@ bool captureProfileSnapshotExtensionsFromPath(
 
     if (!status.ok()) {
       if (!isBuiltInChromeExtension(extension_path)) {
-        LOG(INFO) << "Failed to read the following manifest.json file: "
-                  << manifest_path.string()
-                  << ". The extension was referenced by the following profile: "
-                  << profile_path.value;
+        VLOG(1) << "Failed to read the following manifest.json file: "
+                << manifest_path.string()
+                << ". The extension was referenced by the following profile: "
+                << profile_path.value;
       }
 
       continue;
@@ -571,11 +601,10 @@ bool captureProfileSnapshotExtensionsFromPath(
 
       if (!status.ok()) {
         if (!isBuiltInChromeExtension(referenced_ext_path)) {
-          LOG(ERROR)
-              << "Failed to read the following manifest.json file: "
-              << manifest_path.string()
-              << ". The extension was referenced by the following profile: "
-              << profile_path.value;
+          VLOG(1) << "Failed to read the following manifest.json file: "
+                  << manifest_path.string()
+                  << ". The extension was referenced by the following profile: "
+                  << profile_path.value;
         }
 
         continue;
@@ -780,6 +809,22 @@ ChromeProfileList getChromeProfilesFromSnapshotList(
       continue;
     }
 
+    // Extract the default search engine settings, if any have been
+    // configured for this profile
+    const auto& opt_search_engine_node = parsed_preferences.get_child_optional(
+        "default_search_provider_data.template_url_data");
+
+    if (opt_search_engine_node) {
+      const auto& search_engine_node = opt_search_engine_node.get();
+
+      profile.search_engine_name =
+          search_engine_node.get_optional<std::string>("short_name");
+      profile.search_engine_keyword =
+          search_engine_node.get_optional<std::string>("keyword");
+      profile.search_engine_url =
+          search_engine_node.get_optional<std::string>("url");
+    }
+
     // Parse all the extensions that are inside the profile folder but are
     // not referenced by the Preferences file
     for (const auto& ext_p : snapshot.unreferenced_extensions) {
@@ -960,7 +1005,7 @@ Status getExtensionFromSnapshot(
 
   status = localizeExtensionProperties(output);
   if (!status.ok()) {
-    LOG(ERROR) << "Failed to process the localization settngs for the "
+    LOG(ERROR) << "Failed to process the localization settings for the "
                   "following extension: "
                << output.path;
   }
